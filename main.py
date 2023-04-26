@@ -1,7 +1,20 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, redirect, url_for
+
+from flask_wtf import FlaskForm
+from wtforms import StringField, TextAreaField, EmailField, SelectField, SubmitField
+from wtforms.validators import DataRequired, Optional
+
+
+class FeedbackForm(FlaskForm):
+    name = StringField('Имя', validators=[DataRequired(message='Поле "Имя" не должно быть пустым')])
+    text = TextAreaField('Отзыв', validators=[DataRequired(message='Поле "Отзыв" не должно быть пустым')])
+    email = EmailField('Почта', validators=[Optional()])
+    rating = SelectField('Оценка', choices=[1, 2, 3, 4, 5], default=5)
+    submit = SubmitField('Отправить')
 
 
 app = Flask(__name__)
+app.config["SECRET_KEY"] = "SECRET_KEY"
 
 content = [
     {"title": "Название для шаблона из словаря", "text": "Текст для шаблона из словаря"},
@@ -14,6 +27,22 @@ dt = {"key1": 125371856, "key2": "Hello, world!", "key3": "<h1>Текст для
 
 def index():
     return render_template("index.html", content=content)
+
+
+def feedback():
+    form = FeedbackForm()
+
+    if form.validate_on_submit():
+        name = form.name.data
+        text = form.text.data
+        email = form.email.data
+        rating = form.rating.data
+
+        print(name, text, email, rating, sep="\n-----------------------\n")
+
+        return redirect(url_for("index"))
+
+    return render_template("feedback.html", form=form)
 
 
 def news():
@@ -30,6 +59,7 @@ def category(name):
 
 
 app.add_url_rule("/", "index", index)
+app.add_url_rule("/feedback", "feedback", feedback, methods=["GET", "POST"])
 app.add_url_rule("/news", "news", news)
 app.add_url_rule("/news_detail/<int:id>", "news_detail", news_detail)
 app.add_url_rule("/category/<string:name>", "category", category)
