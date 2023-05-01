@@ -40,6 +40,15 @@ class News(db.Model):
     date = db.Column(db.DateTime, default=datetime.utcnow())
 
 
+class Feedback(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    text = db.Column(db.Text, nullable=False)
+    email = db.Column(db.String(255), nullable=True)
+    rating = db.Column(db.Integer, nullable=False)
+    date = db.Column(db.DateTime, default=datetime.utcnow())
+
+
 with app.app_context():
     db.create_all()
 
@@ -54,12 +63,13 @@ def feedback():
     form = FeedbackForm()
 
     if form.validate_on_submit():
-        name = form.name.data
-        text = form.text.data
-        email = form.email.data
-        rating = form.rating.data
-
-        print(name, text, email, rating, sep="\n-----------------------\n")
+        feedback_model = Feedback()
+        feedback_model.name = form.name.data
+        feedback_model.text = form.text.data
+        feedback_model.email = form.email.data
+        feedback_model.rating = form.rating.data
+        db.session.add(feedback_model)
+        db.session.commit()
 
         return redirect(url_for("index"))
 
