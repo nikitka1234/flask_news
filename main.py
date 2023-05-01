@@ -4,6 +4,9 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, TextAreaField, EmailField, SelectField, SubmitField
 from wtforms.validators import DataRequired, Optional, Length
 
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
+
 
 class FeedbackForm(FlaskForm):
     name = StringField('Имя', validators=[DataRequired(message='Поле "Имя" не должно быть пустым')])
@@ -25,18 +28,26 @@ class NewsForm(FlaskForm):
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "SECRET_KEY"
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///db.sqlite3"
 
-content = [
-    {"title": "Название для шаблона из словаря", "text": "Текст для шаблона из словаря"},
-    {"title": "Экс-глава регионального СК назначен главным федеральным инспектором", "text": "Бывший руководитель следственного управления Следственного комитета по Свердловской области Михаил Богинский назначен главным федеральным инспектором региона. Как сообщили в пресс-службе полпредства, соответствующее распоряжение подписал полномочный представитель президента в УрФО Владимир Якушев."},
-    {"title": "Посол Швейцарии выступил в защиту отказа от передачи Украине боеприпасов", "text": "Посол Швейцарии в Берлине Пауль Зегер выступил в защиту решения правительства страны об отказе передавать Украине боеприпасы швейцарского производства. О своей позиции он заявил изданию Augsburger Allgemeine."}
-]
+db = SQLAlchemy(app)
 
-dt = {"key1": 125371856, "key2": "Hello, world!", "key3": "<h1>Текст для проверки</h1>"}
+
+class News(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), unique=True, nullable=False)
+    text = db.Column(db.Text, nullable=False)
+    date = db.Column(db.DateTime, default=datetime.utcnow())
+
+
+with app.app_context():
+    db.create_all()
 
 
 def index():
-    return render_template("index.html", content=content)
+    db_news = News.query.all()
+
+    return render_template("index.html", content=db_news)
 
 
 def feedback():
@@ -59,10 +70,11 @@ def add_news():
     form = NewsForm()
 
     if form.validate_on_submit():
-        title = form.title.data
-        text = form.text.data
-
-        content.append({"title": title, "text": text})
+        news_table = News()
+        news_table.title = form.title.data
+        news_table.text = form.text.data
+        db.session.add(news_table)
+        db.session.commit()
 
         return redirect(url_for("index"))
 
@@ -74,7 +86,9 @@ def news():
 
 
 def news_detail(id):
-    return render_template("news_detail.html", **content[id])
+    nd_news = News.query.get(id)
+
+    return render_template("news_detail.html", nd_news=nd_news)
 
 
 def category(name):
