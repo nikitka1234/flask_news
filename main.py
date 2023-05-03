@@ -23,6 +23,7 @@ class NewsForm(FlaskForm):
     text = TextAreaField('Текст новости',
                          validators=[DataRequired(message='Поле "Текст новости" не должно быть путым'),
                                      Length(min=50, message="В тексте должно быть минимум 50 символов")])
+    category = SelectField("Категория")
     submit = SubmitField('Добавить')
 
 
@@ -33,11 +34,25 @@ app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///db.sqlite3"
 db = SQLAlchemy(app)
 
 
+class Category(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), unique=True, nullable=False)
+    news = db.relationship("News", back_populates="category")
+
+    def __repr__(self):
+        return f"Category: {self.id}, {self.title}"
+
+
 class News(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(255), unique=True, nullable=False)
     text = db.Column(db.Text, nullable=False)
     date = db.Column(db.DateTime, default=datetime.utcnow())
+    category_id = db.Column(db.Integer, db.ForeignKey("category.id"), nullable=True)
+    category = db.relationship("Category", back_populates="news")
+
+    def __repr__(self):
+        return f"News: {self.id}, {self.title}"
 
 
 class Feedback(db.Model):
@@ -55,12 +70,14 @@ with app.app_context():
 
 def index():
     db_news = News.query.all()
+    categories = Category.query.all()
 
-    return render_template("index.html", content=db_news)
+    return render_template("index.html", content=db_news, categories=categories)
 
 
 def feedback():
     form = FeedbackForm()
+    categories = Category.query.all()
 
     if form.validate_on_submit():
         feedback_model = Feedback()
@@ -73,42 +90,44 @@ def feedback():
 
         return redirect(url_for("index"))
 
-    return render_template("feedback.html", form=form)
+    return render_template("feedback.html", form=form, categories=categories)
 
 
 def add_news():
     form = NewsForm()
+    categories = Category.query.all()
+    form.category.choices = [category_t.title for category_t in categories]
 
     if form.validate_on_submit():
         news_table = News()
         news_table.title = form.title.data
         news_table.text = form.text.data
+        news_table.category_id = Category.query.filter(Category.title == form.category.data).first().id
         db.session.add(news_table)
         db.session.commit()
 
         return redirect(url_for("index"))
 
-    return render_template("add_news.html", form=form)
-
-
-def news():
-    return "Новости"
+    return render_template("add_news.html", form=form, categories=categories)
 
 
 def news_detail(id):
     nd_news = News.query.get(id)
+    categories = Category.query.all()
 
-    return render_template("news_detail.html", nd_news=nd_news)
+    return render_template("news_detail.html", nd_news=nd_news, categories=categories)
 
 
-def category(name):
-    print(type(name))
-    return f"Категория {name}"
+def category(id):
+    category_id = Category.query.get(id)
+    news = category_id.news
+    categories = Category.query.all()
+
+    return render_template("category.html", content=news, categories=categories)
 
 
 app.add_url_rule("/", "index", index)
 app.add_url_rule("/feedback", "feedback", feedback, methods=["GET", "POST"])
 app.add_url_rule("/add_news", "add_news", add_news, methods=["GET", "POST"])
-app.add_url_rule("/news", "news", news)
 app.add_url_rule("/news_detail/<int:id>", "news_detail", news_detail)
-app.add_url_rule("/category/<string:name>", "category", category)
+app.add_url_rule("/category/<int:id>", "category", category)

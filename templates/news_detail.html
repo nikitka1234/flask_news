@@ -4,6 +4,14 @@
 {% endblock title %}
 {% block content %}
     <h1>{{ nd_news.title }}</h1> <!-- Выводите здесь title -->
+    <p>
+        {% if nd_news.date %}
+            Дата добавления: <span class="badge badge-primary">{{ nd_news.date.strftime("%d.%m.%Y") }}</span>
+        {% endif %}
+        {% if nd_news.category %}
+            Категория: <a href="{{ url_for("category", id=nd_news.category.id) }}"><span class="badge badge-primary">{{ nd_news.category.title }}</span></a>
+        {% endif %}
+    </p>
     <hr>
     <p>{{ nd_news.text }}</p> <!-- Выводите здесь text -->
 {% endblock content %}
